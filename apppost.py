@@ -30,13 +30,6 @@ def connect_db():
 @app.before_request
 def before_request():
     """ 【フレームワーク用】リクエスト受信時の初期化処理 """
-    if getattr(g, 'gcnt', None) is not None:
-        g.gcnt += 1
-        g.scnt += 1
-    else:
-        g.gcnt = 0
-        g.scnt = 0
-    print("before %d  %d " % (g.gcnt, g.scnt))
     g.db = connect_db()
 
 
@@ -44,9 +37,6 @@ def before_request():
 def teardown_request(exception):
     """ 【フレームワーク用】リクエスト終了時のお掃除処理 """
     db = getattr(g, 'db', None)
-    gcnt = getattr(g, 'gcnt', None)
-    scnt = getattr(g, 'scnt', None)
-    print("tear %d  %d " % (gcnt, scnt))
     if db is not None:
         db.close()
 
@@ -85,8 +75,10 @@ def get_tasks():
     return response
 
 
-@app.route(CONTEXT_ROOT + '/tasks', methods=['POST'])
-def add_tasks():
+@app.route(CONTEXT_ROOT + '/task', methods=['POST'])
+def add_task():
+    print(request.json)
+    task = request.json
     """ 【API】タスクを追加する """
     # TODO must sanitize
     response = jsonify(update_for_object(
@@ -94,16 +86,16 @@ def add_tasks():
     return response
 
 
-@app.route(CONTEXT_ROOT + '/tasks', methods=['PUT'])
-def upd_tasks(task):
+@app.route(CONTEXT_ROOT + '/task', methods=['PUT'])
+def upd_task():
     """ 【API】タスクを更新する """
     response = jsonify(update_for_object(
         'update tasks set status=%d where task_id=%d' % (int(task.status), int(task.task_id))))
     return response
 
 
-@app.route(CONTEXT_ROOT + '/tasks', methods=['DELETE'])
-def del_tasks():
+@app.route(CONTEXT_ROOT + '/task', methods=['DELETE'])
+def del_task():
     """ 【API】タスクを削除する """
     response = jsonify(update_for_object(
         'delete from tasks where task_id=%s' % (int(task.task_id))))
