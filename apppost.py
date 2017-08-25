@@ -70,10 +70,41 @@ def update_for_object(update_string):
     db.commit()
     return
 
+
+@app.route(CONTEXT_ROOT + '/login', methods=['GET'])
+def getLogin():
+    """ 【API】ログインチェック """
+    return jsonify('user_id' in session)
+
+
+@app.route(CONTEXT_ROOT + '/login', methods=['PUT'])
+def login():
+    """ 【API】ログイン """
+    user_id = request.json.get('user_id')
+    password = request.json.get('password')
+    rememberme = request.json.get('password')
+    user = select_for_object(
+        "select user_id from users where user_id='%s' and password='%s'" % (user_id, password))
+    if rememberme:
+        session['user_id'] = user_id
+    return jsonify(len(user) == 1)
+
+
+@app.route(CONTEXT_ROOT + '/login', methods=['POST'])
+def signin():
+    """ 【API】サインイン """
+    user_id = request.json.get('user_id')
+    password = request.json.get('password')
+    cnt = update_for_object(
+        "insert INTO users (user_id,password) values('%s','%s')" % (user_id, password))
+    return jsonify(cnt == 1)
+
+
 @app.route(CONTEXT_ROOT + '/tasks', methods=['GET'])
 def get_tasks():
     """ 【API】全タスクリストを返却する """
-    response = jsonify(select_for_object('select * from tasks order by end_date'))
+    response = jsonify(select_for_object(
+        'select * from tasks order by end_date'))
     return response
 
 
@@ -105,39 +136,43 @@ def add_task():
 
     try:
         # Change the data type for validation of end_date
-        data = {"end_date": datetime.strptime(request.json.get('end_date'), '%Y-%m-%d'), "item": request.json.get('item')}
+        data = {"end_date": datetime.strptime(request.json.get(
+            'end_date'), '%Y-%m-%d'), "item": request.json.get('item')}
         if v.validate(data) == False:
-            #response = "Argument Error"
-            return response 
+            # response = "Argument Error"
+            return response
     except ValueError:
-        #response = "An error occurred"
+        # response = "An error occurred"
         return response
     except TypeError:
-        #response = "An error occurred"
+        # response = "An error occurred"
         return response
 
     # Inject request data into database
     try:
         conn = connect_db()
         cur = conn.cursor()
-        cur.execute("insert into tasks (end_date,item,update_record_date) values (?,?,?)" , (data.get("end_date"), data.get("item"), datetime.now()))
+        cur.execute("insert into tasks (end_date,item,update_record_date) values (?,?,?)",
+                    (data.get("end_date"), data.get("item"), datetime.now()))
         conn.commit()
-        #response = "Data has been injected"
+        # response = "Data has been injected"
         return response
     except sqlite3.Error as e:
-        #response = "An error occurred:" % e.args[0]
+        # response = "An error occurred:" % e.args[0]
         return response
+
 
 @app.route(CONTEXT_ROOT + '/task/<task_id>', methods=['PUT'])
 def upd_task(task_id):
     """ 【API】タスクを更新する """
     try:
         response = jsonify(update_for_object(
-        "update tasks set status=%d,update_record_date='%s' where task_id=%d" % (1,datetime.now(),int(task_id))))
+            "update tasks set status=%d,update_record_date='%s' where task_id=%d" % (1, datetime.now(), int(task_id))))
         return response
     except sqlite3.Error as e:
-        #response = "An error occurred:" % e.args[0]
+        # response = "An error occurred:" % e.args[0]
         return response
+
 
 @app.route(CONTEXT_ROOT + '/task', methods=['DELETE'])
 def del_task():
@@ -145,6 +180,7 @@ def del_task():
     response = jsonify(update_for_object(
         'delete from tasks where task_id=%s' % (int(task.task_id))))
     return response
+
 
 if __name__ == '__main__':
     app.run(debug=True)

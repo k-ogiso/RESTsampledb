@@ -7,3 +7,8 @@ create table tasks (
   create_record_date date default current_timestamp,
   update_record_date date
 );
+drop table if exists users;
+create table users (
+  user_id string primary key,
+  password string not null
+);
