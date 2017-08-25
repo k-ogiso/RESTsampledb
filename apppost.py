@@ -74,7 +74,7 @@ def update_for_object(update_string):
 @app.route(CONTEXT_ROOT + '/tasks', methods=['GET'])
 def get_tasks():
     """ 【API】全タスクリストを返却する """
-    response = jsonify(select_for_object('select * from tasks'))
+    response = jsonify(select_for_object('select * from tasks order by end_date'))
     return response
 
 
