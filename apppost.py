@@ -67,9 +67,8 @@ def update_for_object(update_string):
     """ 【共通処理】updateの実行結果のカウント返す処理 """
     db = g.db
     cur = db.execute(update_string)
-    print(new_tasks)
-    return new_tasks
-
+    db.commit()
+    return
 
 @app.route(CONTEXT_ROOT + '/tasks', methods=['GET'])
 def get_tasks():
@@ -129,13 +128,16 @@ def add_task():
         #response = "An error occurred:" % e.args[0]
         return response
 
-@app.route(CONTEXT_ROOT + '/task', methods=['PUT'])
-def upd_task():
+@app.route(CONTEXT_ROOT + '/task/<task_id>', methods=['PUT'])
+def upd_task(task_id):
     """ 【API】タスクを更新する """
-    response = jsonify(update_for_object(
-        'update tasks set status=%d where task_id=%d' % (int(task.status), int(task.task_id))))
-    return response
-
+    try:
+        response = jsonify(update_for_object(
+        "update tasks set status=%d,update_record_date='%s' where task_id=%d" % (1,datetime.now(),int(task_id))))
+        return response
+    except sqlite3.Error as e:
+        #response = "An error occurred:" % e.args[0]
+        return response
 
 @app.route(CONTEXT_ROOT + '/task', methods=['DELETE'])
 def del_task():
@@ -143,7 +145,6 @@ def del_task():
     response = jsonify(update_for_object(
         'delete from tasks where task_id=%s' % (int(task.task_id))))
     return response
-
 
 if __name__ == '__main__':
     app.run(debug=True)
