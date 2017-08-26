@@ -175,9 +175,9 @@ def add_task():
 def upd_task(task_id):
     """ 【API】タスクを更新する """
     try:
-        response = jsonify(update_for_object(
-            "update tasks set status=?,update_record_date=? where task_id=?", [1, datetime.now(), int(task_id)]))
-        return response
+        response = update_for_object(
+            "update tasks set status=?,update_record_date=? where task_id=?", [1, datetime.now(), int(task_id)])
+        return jsonify(0)
     except sqlite3.Error as e:
         # response = "An error occurred:" % e.args[0]
         return response
@@ -192,4 +192,4 @@ def del_task():
 
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(host='13.7.28.54', port=8200, debug=True)
