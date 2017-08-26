@@ -1,6 +1,7 @@
 drop table if exists tasks;
 create table tasks (
   task_id integer primary key autoincrement,
+  user_id string not null,
   end_date date not null,
   item string not null,
   status integer default 0 not null,

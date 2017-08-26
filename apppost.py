@@ -50,10 +50,10 @@ def not_found(error):
     return make_response(jsonify({'error': 'Not found'}), 404)
 
 
-def select_for_object(query_string):
+def select_for_object(query_string, params):
     """ 【共通処理】query_stringの実行結果をオブジェクト（連想配列）に変換して返す処理 """
     db = g.db
-    cur = db.execute(query_string)
+    cur = db.execute(query_string, params)
     column_names = [rec[0] for rec in cur.description]
     new_tasks = [
         {column_names[idx]:row[idx]
@@ -63,12 +63,12 @@ def select_for_object(query_string):
     return new_tasks
 
 
-def update_for_object(update_string):
+def update_for_object(update_string, params):
     """ 【共通処理】updateの実行結果のカウント返す処理 """
     db = g.db
-    cur = db.execute(update_string)
+    cur = db.execute(update_string, params)
     db.commit()
-    return
+    return cur
 
 
 @app.route(CONTEXT_ROOT + '/login', methods=['GET'])
@@ -82,29 +82,36 @@ def login():
     """ 【API】ログイン """
     user_id = request.json.get('user_id')
     password = request.json.get('password')
-    rememberme = request.json.get('password')
+    rememberme = request.json.get('rememberme')
     user = select_for_object(
-        "select user_id from users where user_id='%s' and password='%s'" % (user_id, password))
+        "select user_id from users where user_id=? and password=?", [user_id, password])
     if rememberme:
         session['user_id'] = user_id
     return jsonify(len(user) == 1)
 
 
 @app.route(CONTEXT_ROOT + '/login', methods=['POST'])
-def signin():
+def signup():
     """ 【API】サインイン """
     user_id = request.json.get('user_id')
     password = request.json.get('password')
-    cnt = update_for_object(
-        "insert INTO users (user_id,password) values('%s','%s')" % (user_id, password))
+    print(user_id,password)
+    cnt = 0
+    try:
+        cnt = update_for_object(
+            "insert INTO users (user_id,password) values(?,?)", [user_id, password])
+        print("Count=",cnt)
+    except sqlite3.Error as e:
+        cnt = 0
     return jsonify(cnt == 1)
 
 
 @app.route(CONTEXT_ROOT + '/tasks', methods=['GET'])
 def get_tasks():
     """ 【API】全タスクリストを返却する """
+    print(session['user_id'])
     response = jsonify(select_for_object(
-        'select * from tasks order by end_date'))
+        "select * from tasks where user_id=? order by end_date", [session['user_id']]))
     return response
 
 
@@ -143,8 +150,10 @@ def add_task():
             return response
     except ValueError:
         # response = "An error occurred"
+        print("An error occurred")
         return response
     except TypeError:
+        print("An error occurred")
         # response = "An error occurred"
         return response
 
@@ -152,8 +161,8 @@ def add_task():
     try:
         conn = connect_db()
         cur = conn.cursor()
-        cur.execute("insert into tasks (end_date,item,update_record_date) values (?,?,?)",
-                    (data.get("end_date"), data.get("item"), datetime.now()))
+        cur.execute("insert into tasks (end_date,item,update_record_date,user_id) values (?,?,?,?)",
+                    (data.get("end_date"), data.get("item"), datetime.now(), session["user_id"]))
         conn.commit()
         # response = "Data has been injected"
         return response
@@ -167,7 +176,7 @@ def upd_task(task_id):
     """ 【API】タスクを更新する """
     try:
         response = jsonify(update_for_object(
-            "update tasks set status=%d,update_record_date='%s' where task_id=%d" % (1, datetime.now(), int(task_id))))
+            "update tasks set status=?,update_record_date=? where task_id=?", [1, datetime.now(), int(task_id)]))
         return response
     except sqlite3.Error as e:
         # response = "An error occurred:" % e.args[0]
@@ -178,7 +187,7 @@ def upd_task(task_id):
 def del_task():
     """ 【API】タスクを削除する """
     response = jsonify(update_for_object(
-        'delete from tasks where task_id=%s' % (int(task.task_id))))
+        "delete from tasks where task_id=?", [int(task.task_id)]))
     return response
 
 
