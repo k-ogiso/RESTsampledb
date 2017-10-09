@@ -1,19 +1,17 @@
 ''' REST sample '''
 #!flask/bin/python
 import sqlite3
-# import json
+import json
 from cerberus import Validator
 from contextlib import closing
 from flask import Flask, jsonify, abort, make_response, url_for, g, request, session, redirect, abort, render_template, flash
 from datetime import datetime, date
 from pprint import pprint
 
-#!/usr/local/bin/python
-# -*- coding: utf-8 -*-
 import requests as req
 import simplejson as json
-client_id = 'xxxxxxxx'
-client_secret = 'xxxxxxxx'
+client_id = 'xxxxxxxxxxx'
+client_secret = 'xxxxxxxxxxx'
 getAccessToken = 'https://graph.facebook.com/oauth/access_token?client_id=%s&client_secret=%s&grant_type=client_credentials' % (
     client_id, client_secret)
 r = req.get(getAccessToken)
@@ -83,13 +81,13 @@ def update_for_object(update_string, params):
     return cur
 
 
-@app.route(CONTEXT_ROOT + '/login', methods=['GET'])
+@app.route('/todo/api/v1.0/login', methods=['GET'])
 def getLogin():
     """ 【API】ログインチェック """
     return jsonify('user_id' in session)
 
 
-@app.route(CONTEXT_ROOT + '/login', methods=['PUT'])
+@app.route('/todo/api/v1.0/login', methods=['PUT'])
 def login():
     """ 【API】ログイン """
     user_id = request.json.get('user_id')
@@ -97,60 +95,64 @@ def login():
     rememberme = request.json.get('rememberme')
     user = select_for_object(
         "select user_id from users where user_id=? and password=?", [user_id, password])
-    if rememberme:
-        session['user_id'] = user_id
+    session['user_id'] = user_id
     return jsonify(len(user) == 1)
 
 
-@app.route(CONTEXT_ROOT + '/facebooklogin', methods=['POST'])
+@app.route('/todo/api/v1.0/login', methods=['POST'])
 def signup():
-    """ 【API】サインアップ """
-    userAccessToken = request.json.get('accessToken')
-    getData = 'https://graph.facebook.com/debug_token?input_token=%s&access_token=%s' % (
-        userAccessToken, accessToken)
-    r = req.get(getData)
-    obj = json.loads(r.text)
-    userId = obj['data']['user_id']
-    cnt = 0
-    user = select_for_object(
-        "select user_id from users where user_id=?", [user_id])
-    if len(user) == 1:
-        session['user_id'] = user_id
-        return jsonify(len(user) == 1)
-    else:
-        cnt = update_for_object(
-            "insert INTO users (user_id) values(?)", [userId])
-        print("Count=", cnt)
-        session['user_id'] = user_id
-        return jsonify(len(user) == 1)
-
-
-@app.route(CONTEXT_ROOT + '/login', methods=['POST'])
-def signup():
-    """ 【API】サインアップ """
+    """ 【API】サインイン """
     user_id = request.json.get('user_id')
     password = request.json.get('password')
     print(user_id, password)
     cnt = 0
     try:
         cnt = update_for_object(
-            "insert INTO users (user_id,password) values(?,?)", [user_id, password])
+            "insert INTO users (user_id,password) values(?,?)", [user_id, password]).rowcount
         print("Count=", cnt)
     except sqlite3.Error as e:
         cnt = 0
-    return jsonify(cnt == 1)
+    if cnt == 1:
+        # OK
+        session['user_id'] = user_id
+        return jsonify(True)
+    else:
+        # NG
+        return jsonify(False)
 
 
-@app.route(CONTEXT_ROOT + '/tasks', methods=['GET'])
+@app.route('/todo/api/v1.0/facebooklogin', methods=['PUT'])
+def signup():
+    """ 【API】facebookログイン """
+    userAccessToken = request.json.get('accessToken')
+    getData = 'https://graph.facebook.com/debug_token?input_token=%s&access_token=%s' % (
+        userAccessToken, accessToken)
+    r = req.get(getData)
+    obj = json.loads(r.text)
+    user_id = obj['data']['user_id']
+    cnt = 0
+    user = select_for_object(
+        "select user_id from users where user_id=?", [user_id])
+    session['user_id'] = user_id
+    if len(user) == 1:
+        return jsonify(len(user) == 1)
+    else:
+        cnt = update_for_object(
+            "insert INTO users (user_id) values(?)", [user_id])
+        print("Count=", cnt)
+        return jsonify(len(user) == 1)
+
+
+@app.route('/todo/api/v1.0/tasks', methods=['GET'])
 def get_tasks():
     """ 【API】全タスクリストを返却する """
     print(session['user_id'])
     response = jsonify(select_for_object(
-        "select * from tasks where user_id=? order by end_date", [session['user_id']]))
+        "select * from tasks where user_id=? and status != -1 order by end_date", [session['user_id']]))
     return response
 
 
-@app.route(CONTEXT_ROOT + '/task', methods=['POST'])
+@app.route('/todo/api/v1.0/task', methods=['POST'])
 def add_task():
     print(request.json)
     task = request.json
@@ -206,19 +208,28 @@ def add_task():
         return response
 
 
-@app.route(CONTEXT_ROOT + '/task/<task_id>', methods=['PUT'])
+@app.route('/todo/api/v1.0/task/<task_id>', methods=['PUT'])
 def upd_task(task_id):
+    status = request.json.get('status')
     """ 【API】タスクを更新する """
     try:
-        response = update_for_object(
-            "update tasks set status=?,update_record_date=? where task_id=?", [1, datetime.now(), int(task_id)])
+        if status == None:
+            task = request.json.get('task')
+            end_date = task.get('end_date')
+            item = task.get('item')
+            status = task.get('status')
+            response = update_for_object(
+                "update tasks set end_date=?,item=?,status=?,update_record_date=? where task_id=?", [end_date, item, status, datetime.now(), int(task_id)])
+        else:
+            response = update_for_object(
+                "update tasks set status=?,update_record_date=? where task_id=?", [status, datetime.now(), int(task_id)])
         return jsonify(0)
     except sqlite3.Error as e:
         # response = "An error occurred:" % e.args[0]
         return response
 
 
-@app.route(CONTEXT_ROOT + '/task', methods=['DELETE'])
+@app.route('/todo/api/v1.0/task', methods=['DELETE'])
 def del_task():
     """ 【API】タスクを削除する """
     response = jsonify(update_for_object(
